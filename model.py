@@ -1,9 +1,12 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+from collections import OrderedDict
 
 
-def conv3x3(in_channels, out_channels, stride=1, padding=1, bias=True):
+def conv3x3(in_channels, out_channels, stride=1, 
+    padding=1, bias=True, groups=1):
+    
     """3x3 convolution with padding
     """
     return nn.Conv2d(
@@ -11,8 +14,9 @@ def conv3x3(in_channels, out_channels, stride=1, padding=1, bias=True):
         out_channels, 
         kernel_size=3, 
         stride=stride,
-        padding=padding, 
-        bias=bias)
+        padding=padding,
+        bias=bias,
+        groups=groups)
 
 
 def conv1x1(in_channels, out_channels, groups=1):
@@ -26,6 +30,7 @@ def conv1x1(in_channels, out_channels, groups=1):
         kernel_size=1, 
         groups=groups,
         stride=1)
+
 
 def channel_shuffle(x, groups):
     batchsize, num_channels, height, width = x.data.size()
@@ -48,36 +53,55 @@ def channel_shuffle(x, groups):
 
 
 class ShuffleUnit(nn.Module):
-    def __init__(self, in_channels, out_channels, groups,
+    def __init__(self, in_channels, out_channels, groups=3,
                  grouped_conv=True, depthwise_stride=1):
         
-        super(ShuffleUnit, super).__init__()
+        super(ShuffleUnit, self).__init__()
 
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.grouped_conv = grouped_conv
         self.depthwise_stride = depthwise_stride
+        self.groups = groups
 
-        self.groups = groups if grouped_conv else 1
         self.bottleneck_channels = self.out_channels // 4
 
         # Use a 1x1 grouped or non-grouped convolution to reduce input channels
         # to bottleneck channels, as in a ResNet bottleneck module
+        # NOTE: Do not use group convolution for the first conv1x1 in Stage 2.
+        first_1x1_groups = self.groups if grouped_conv else 1
+
         self.g_conv_1x1_compress = self._make_grouped_conv1x1(
             self.in_channels,
             self.bottleneck_channels,
+            groups=first_1x1_groups,
             batch_norm=True,
             relu=True
             )
 
+        # 3x3 depthwise convolution followed by batch normalization
+        self.depthwise_conv3x3 = conv3x3(
+            self.bottleneck_channels, self.bottleneck_channels,
+            stride=depthwise_stride, groups=self.bottleneck_channels)
+        self.bn_after_depthwise = nn.BatchNorm2d(self.bottleneck_channels)
+
+        # Use 1x1 grouped convolution to expand from 
+        # bottleneck_channels to out_channels
+        self.g_conv_1x1_expand = self._make_grouped_conv1x1(
+            self.bottleneck_channels,
+            self.out_channels,
+            groups=self.groups,
+            batch_norm=True,
+            relu=False
+            )
 
 
-    def _make_grouped_conv1x1(self, in_channels, out_channels,
+    def _make_grouped_conv1x1(self, in_channels, out_channels, groups,
         batch_norm=True, relu=False):
 
         modules = OrderedDict()
 
-        conv = conv1x1(in_channels, out_channels, groups=self.groups)
+        conv = conv1x1(in_channels, out_channels, groups=groups)
         modules['conv1x1'] = conv
 
         if batch_norm:
@@ -90,8 +114,6 @@ class ShuffleUnit(nn.Module):
             return conv
 
 
-
-
     def _combine(operation):
         if operation == 'add':
             pass
@@ -99,6 +121,7 @@ class ShuffleUnit(nn.Module):
             pass
         else:
             raise ValueError("operation \"{}\" not supported.".format(operation))
+
 
     def forward(self, x):
         pass
