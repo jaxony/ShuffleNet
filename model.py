@@ -152,16 +152,18 @@ class ShuffleNet(nn.Module):
         self.in_channels =  in_channels
         self.num_classes = num_classes
 
+        # index 0 is invalid and should never be called.
+        # only used for indexing convenience.
         if groups == 1:
-            self.stage_out_channels = [0, 24, 144, 288, 567]
+            self.stage_out_channels = [-1, 24, 144, 288, 567]
         elif groups == 2:
-            self.stage_out_channels = [0, 24, 200, 400, 800]
+            self.stage_out_channels = [-1, 24, 200, 400, 800]
         elif groups == 3:
-            self.stage_out_channels = [0, 24, 240, 480, 960]
+            self.stage_out_channels = [-1, 24, 240, 480, 960]
         elif groups == 4:
-            self.stage_out_channels = [0, 24, 272, 544, 1088]
+            self.stage_out_channels = [-1, 24, 272, 544, 1088]
         elif groups == 8:
-            self.stage_out_channels = [0, 24, 384, 768, 1536]
+            self.stage_out_channels = [-1, 24, 384, 768, 1536]
         else:
             raise ValueError(
                 """{} groups is not supported for 
@@ -169,7 +171,7 @@ class ShuffleNet(nn.Module):
         
         # Stage 1 always has 24 output channels
         self.conv1 = conv3x3(self.in_channels, 
-                             self.stage_out_channels[0], 
+                             self.stage_out_channels[1], # stage 1
                              stride=2)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
@@ -192,32 +194,35 @@ class ShuffleNet(nn.Module):
 
 
     def _make_stage(self, stage):
-        layers = []
+        modules = OrderedDict()
+        stage_name = "ShuffleUnit_Stage{}".format(stage)
         
-        # first layer is special
+        # first module is special
         # - non-grouped 1x1 convolution (i.e. pointwise convolution)
         #   is used in stage 2. Group convolutions used thereafter.
         # - depthwise convolution has a stride of 2 for all stages.
         grouped_conv = stage > 2
-        first_layer = ShuffleUnit(
+        first_module = ShuffleUnit(
             self.stage_out_channels[stage-1],
             self.stage_out_channels[stage],
-            depthwise_stride=2,
+            groups=self.groups,
             grouped_conv=grouped_conv,
+            depthwise_stride=2,
             )
-        layers.append(first_layer)
+        modules[stage_name+"_0"] = first_module
 
         # add more ShuffleUnits depending on pre-defined number of repeats
-        for _ in range(self.stage_repeats[stage-2]):
-            layer = ShuffleUnit(
+        for i in range(self.stage_repeats[stage-2]):
+            name = stage_name + "_{}".format(i+1)
+            module = ShuffleUnit(
                 self.stage_out_channels[stage],
                 self.stage_out_channels[stage],
+                groups=self.groups,
                 grouped_conv=True,
                 )
-            
-            layers.append(layer)
+            modules[name] = module
 
-        return layers
+        return nn.Sequential(modules)
 
 
     def forward(self, x):
