@@ -6,18 +6,79 @@ from torch.autograd import Variable
 def conv3x3(in_channels, out_channels, stride=1, padding=1, bias=True):
     """3x3 convolution with padding
     """
-    return nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride,
-                     padding=padding, bias=bias)
+    return nn.Conv2d(
+        in_channels, 
+        out_channels, 
+        kernel_size=3, 
+        stride=stride,
+        padding=padding, 
+        bias=bias)
 
-def conv1x1(in_channels, out_channels):
-    """1x1 convolution with padding"""
-    return nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1)
+
+def conv1x1(in_channels, out_channels, groups=1):
+    """1x1 convolution with padding
+    - Normal pointwise convolution When groups == 1
+    - Grouped pointwise convolution when groups > 1
+    """
+    return nn.Conv2d(
+        in_channels, 
+        out_channels, 
+        kernel_size=1, 
+        groups=groups,
+        stride=1)
 
 
 class ShuffleUnit(nn.Module):
-    def __init__(self, in_channels, out_channels, 
+    def __init__(self, in_channels, out_channels, groups,
                  grouped_conv=True, depthwise_stride=1):
-        pass
+        
+        super(ShuffleUnit, super).__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.grouped_conv = grouped_conv
+        self.depthwise_stride = depthwise_stride
+
+        self.groups = groups if grouped_conv else 1
+        self.bottleneck_channels = self.out_channels // 4
+
+        # Use a 1x1 grouped or non-grouped convolution to reduce input channels
+        # to bottleneck channels, as in a ResNet bottleneck module
+        self.g_conv_1x1_compress = self._make_grouped_conv1x1(
+            self.in_channels,
+            self.bottleneck_channels,
+            batch_norm=True,
+            relu=True
+            )
+
+
+    def _make_grouped_conv1x1(self, in_channels, out_channels,
+        batch_norm=True, relu=False):
+
+        modules = OrderedDict()
+
+        conv = conv1x1(in_channels, out_channels, groups=self.groups)
+        modules['conv1x1'] = conv
+
+        if batch_norm:
+            modules['batch_norm'] = nn.BatchNorm2d(out_channels)
+        if relu:
+            modules['batch_norm'] = nn.ReLU()
+        if len(modules) > 1:
+            return nn.Sequential(modules)
+        else:
+            return conv
+
+
+
+
+    def _combine(operation):
+        if operation == 'add':
+            pass
+        elif operation == 'concat':
+            pass
+        else:
+            raise ValueError("operation \"{}\" not supported.".format(operation))
 
     def forward(self, x):
         pass
