@@ -27,6 +27,25 @@ def conv1x1(in_channels, out_channels, groups=1):
         groups=groups,
         stride=1)
 
+def channel_shuffle(x, groups):
+    batchsize, num_channels, height, width = x.data.size()
+
+    channels_per_group = num_channels // groups
+    
+    # reshape
+    x = x.view(batchsize, groups, 
+        channels_per_group, height, width)
+
+    # transpose
+    # - contiguous() required if transpose() is used before view().
+    #   See https://github.com/pytorch/pytorch/issues/764
+    x = torch.transpose(x, 1, 2).contiguous()
+
+    # flatten
+    x = x.view(batchsize, -1, height, width)
+
+    return x
+
 
 class ShuffleUnit(nn.Module):
     def __init__(self, in_channels, out_channels, groups,
@@ -50,6 +69,7 @@ class ShuffleUnit(nn.Module):
             batch_norm=True,
             relu=True
             )
+
 
 
     def _make_grouped_conv1x1(self, in_channels, out_channels,
