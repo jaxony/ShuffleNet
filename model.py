@@ -54,7 +54,7 @@ def channel_shuffle(x, groups):
 
 class ShuffleUnit(nn.Module):
     def __init__(self, in_channels, out_channels, groups=3,
-                 grouped_conv=True, depthwise_stride=1):
+                 grouped_conv=True, depthwise_stride=1, combine='add'):
         
         super(ShuffleUnit, self).__init__()
 
@@ -63,6 +63,7 @@ class ShuffleUnit(nn.Module):
         self.grouped_conv = grouped_conv
         self.depthwise_stride = depthwise_stride
         self.groups = groups
+        self.combine = combine
 
         self.bottleneck_channels = self.out_channels // 4
 
@@ -114,11 +115,16 @@ class ShuffleUnit(nn.Module):
             return conv
 
 
-    def _combine(operation):
-        if operation == 'add':
-            pass
-        elif operation == 'concat':
-            pass
+    def _combine(sef, x0, output):
+        """x0 is the initial input. output is the tensor after
+        forward pass.
+        """
+        if self.combine == 'add':
+            # residual connection
+            return x0 + output
+        elif self.combine == 'concat':
+            # concatenate along channel axis
+            return torch.cat((x0, output), 1)
         else:
             raise ValueError("operation \"{}\" not supported.".format(operation))
 
