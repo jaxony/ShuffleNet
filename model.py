@@ -140,22 +140,21 @@ class ShuffleUnit(nn.Module):
             return conv
 
 
-    def _combine(sef, x0, output):
-        """x0 is the initial input. output is the tensor after
-        forward pass.
-        """
-        if self.combine == 'add':
-            # residual connection
-            return x0 + output
-        elif self.combine == 'concat':
-            # concatenate along channel axis
-            return torch.cat((x0, output), 1)
-        else:
-            raise ValueError("operation \"{}\" not supported.".format(operation))
-
-
     def forward(self, x):
-        pass
+        residual = x # save for combining later with output
+
+        if self.combine == 'concat':
+            residual = F.avg_pool2d(residual, kernel_size=3, 
+                stride=2, padding=1)
+
+        out = self.g_conv_1x1_compress(x)
+        out = self.depthwise_conv3x3(out)
+        out = self.bn_after_depthwise(out)
+        out = self.g_conv_1x1_expand(out)
+        
+        out = self._combine_func(residual, out)
+        return F.relu(out)
+
 
 
 class ShuffleNet(nn.Module):
@@ -208,10 +207,8 @@ class ShuffleNet(nn.Module):
 
         # Stage 2
         self.stage2 = self._make_stage(2)
-
         # Stage 3
         self.stage3 = self._make_stage(3)
-
         # Stage 4
         self.stage4 = self._make_stage(4)
 
