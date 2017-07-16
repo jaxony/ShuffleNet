@@ -225,14 +225,21 @@ class ShuffleNet(nn.Module):
         modules = OrderedDict()
         stage_name = "ShuffleUnit_Stage{}".format(stage)
         
-        # first module is special
-        # - non-grouped 1x1 convolution (i.e. pointwise convolution)
-        #   is used in stage 2. Group convolutions used thereafter.
-        # - concatenation is used.
+        # First ShuffelUnit in the stage
+        # 1. tricky number of output channels:
+        #       actual output channels of conv path
+        #             = paper's output (Table 1) - input channels
+        first_output_channels = (
+            self.stage_out_channels[stage] - self.stage_out_channels[stage-1])
+
+        # 2. non-grouped 1x1 convolution (i.e. pointwise convolution)
+        #   is used in Stage 2. Group convolutions used everywhere else.
         grouped_conv = stage > 2
+        
+        # 3. concatenation unit is always used.
         first_module = ShuffleUnit(
             self.stage_out_channels[stage-1],
-            self.stage_out_channels[stage],
+            first_output_channels,
             groups=self.groups,
             grouped_conv=grouped_conv,
             combine='concat'
@@ -255,11 +262,25 @@ class ShuffleNet(nn.Module):
 
 
     def forward(self, x):
-        pass
+        x = self.conv1(x)
+        x = self.maxpool(x)
+
+        x = self.stage2(x)
+        x = self.stage3(x)
+        x = self.stage4(x)
+
+        # global average pooling layer
+        x = F.avg_pool2d(x, x.data.size()[-2:])
+        
+        # flatten for input to fully-connected layer
+        x = x.view(x.data.size(0), -1)
+        out = self.fc(x)
+
+        return out
 
 
 if __name__ == "__main__":
-    """ Testing
+    """Testing
     """
     model = ShuffleNet()
     print(model)
