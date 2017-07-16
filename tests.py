@@ -49,6 +49,23 @@ class TestShuffleUnit(unittest.TestCase):
         #print("Passed Stage 2 Add ShuffleUnit test.")
 
 
+    def test_stage2_firstShuffleUnit(self):
+        groups = 3
+        in_channels = 24
+        out_channels = 240 - in_channels
+        x = get_input(num_channels=in_channels, height=56, width=56)
+        unit = ShuffleUnit(
+            in_channels,
+            out_channels,
+            groups=groups,
+            grouped_conv=False,
+            combine='concat'
+            )
+
+        out = unit.forward(x)
+        self.assertEqual(0, np.any(out.data.size() != (1, 240, 28, 28)))
+
+
 class TestChannelShuffle(unittest.TestCase):
     def test(self):
         
@@ -77,6 +94,17 @@ class TestChannelShuffle(unittest.TestCase):
                            14,  15]).reshape(shape)
         self.assertEqual(0, np.any(out != answer))
         #print("Passed channel shuffle test.")
+
+
+class TestShuffleNet(unittest.TestCase):
+    def test(self):
+        # ImageNet image input size
+        x = get_input(batchsize=1, num_channels=3, width=224, height=224)
+        num_classes = 1000
+        groups = 3
+        net = ShuffleNet(groups=groups, num_classes=num_classes)
+        out = net.forward(x)
+        self.assertEqual(0, np.any(out.data.size() != (1, 1000)))
 
 
 if __name__ == "__main__":
