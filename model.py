@@ -6,8 +6,7 @@ from collections import OrderedDict
 
 
 def conv3x3(in_channels, out_channels, stride=1, 
-    padding=1, bias=True, groups=1):
-    
+            padding=1, bias=True, groups=1):    
     """3x3 convolution with padding
     """
     return nn.Conv2d(
@@ -82,14 +81,14 @@ class ShuffleUnit(nn.Module):
         self.bottleneck_channels = self.out_channels // 4
 
         # Use a 1x1 grouped or non-grouped convolution to reduce input channels
-        # to bottleneck channels, as in a ResNet bottleneck module
+        # to bottleneck channels, as in a ResNet bottleneck module.
         # NOTE: Do not use group convolution for the first conv1x1 in Stage 2.
-        first_1x1_groups = self.groups if grouped_conv else 1
+        self.first_1x1_groups = self.groups if grouped_conv else 1
 
         self.g_conv_1x1_compress = self._make_grouped_conv1x1(
             self.in_channels,
             self.bottleneck_channels,
-            groups=first_1x1_groups,
+            groups=self.first_1x1_groups,
             batch_norm=True,
             relu=True
             )
@@ -109,6 +108,7 @@ class ShuffleUnit(nn.Module):
             batch_norm=True,
             relu=False
             )
+
 
     @staticmethod
     def _add(x, out):
@@ -130,10 +130,13 @@ class ShuffleUnit(nn.Module):
         conv = conv1x1(in_channels, out_channels, groups=groups)
         modules['conv1x1'] = conv
 
+        #if groups == 1:
+            #print('$$$$$$', conv.weight.data.size())
+
         if batch_norm:
             modules['batch_norm'] = nn.BatchNorm2d(out_channels)
         if relu:
-            modules['batch_norm'] = nn.ReLU()
+            modules['relu'] = nn.ReLU()
         if len(modules) > 1:
             return nn.Sequential(modules)
         else:
@@ -141,13 +144,15 @@ class ShuffleUnit(nn.Module):
 
 
     def forward(self, x):
-        residual = x # save for combining later with output
+        # save for combining later with output
+        residual = x
 
         if self.combine == 'concat':
             residual = F.avg_pool2d(residual, kernel_size=3, 
                 stride=2, padding=1)
 
         out = self.g_conv_1x1_compress(x)
+        out = channel_shuffle(out, self.groups)
         out = self.depthwise_conv3x3(out)
         out = self.bn_after_depthwise(out)
         out = self.g_conv_1x1_expand(out)
@@ -156,10 +161,8 @@ class ShuffleUnit(nn.Module):
         return F.relu(out)
 
 
-
 class ShuffleNet(nn.Module):
-    """ 
-    ShuffleNet implementation.
+    """ShuffleNet implementation.
     """
 
     def __init__(self, groups=3, in_channels=3, num_classes=1000):
@@ -196,11 +199,11 @@ class ShuffleNet(nn.Module):
             self.stage_out_channels = [-1, 24, 384, 768, 1536]
         else:
             raise ValueError(
-                """{} groups is not supported for 
+                """{} groups is not supported for
                    1x1 Grouped Convolutions""".format(num_groups))
         
         # Stage 1 always has 24 output channels
-        self.conv1 = conv3x3(self.in_channels, 
+        self.conv1 = conv3x3(self.in_channels,
                              self.stage_out_channels[1], # stage 1
                              stride=2)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
