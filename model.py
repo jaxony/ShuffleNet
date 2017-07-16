@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.autograd import Variable
 from collections import OrderedDict
 
@@ -54,17 +55,30 @@ def channel_shuffle(x, groups):
 
 class ShuffleUnit(nn.Module):
     def __init__(self, in_channels, out_channels, groups=3,
-                 grouped_conv=True, depthwise_stride=1, combine='add'):
+                 grouped_conv=True, combine='add'):
         
         super(ShuffleUnit, self).__init__()
 
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.grouped_conv = grouped_conv
-        self.depthwise_stride = depthwise_stride
-        self.groups = groups
         self.combine = combine
+        self.groups = groups
 
+        # define the type of ShuffleUnit
+        if self.combine == 'add':
+            # ShuffleUnit Figure 2b
+            self.depthwise_stride = 1
+            self._combine_func = self._add
+        elif self.combine == 'concat':
+            # ShuffleUnit Figure 2c
+            self.depthwise_stride = 2
+            self._combine_func = self._concat
+        else:
+            raise ValueError("Cannot combine tensors with \"{}\"" \
+                             "Only \"add\" and \"concat\" are" \
+                             "supported".format(self.combine))
+        
         self.bottleneck_channels = self.out_channels // 4
 
         # Use a 1x1 grouped or non-grouped convolution to reduce input channels
@@ -83,7 +97,7 @@ class ShuffleUnit(nn.Module):
         # 3x3 depthwise convolution followed by batch normalization
         self.depthwise_conv3x3 = conv3x3(
             self.bottleneck_channels, self.bottleneck_channels,
-            stride=depthwise_stride, groups=self.bottleneck_channels)
+            stride=self.depthwise_stride, groups=self.bottleneck_channels)
         self.bn_after_depthwise = nn.BatchNorm2d(self.bottleneck_channels)
 
         # Use 1x1 grouped convolution to expand from 
@@ -95,6 +109,17 @@ class ShuffleUnit(nn.Module):
             batch_norm=True,
             relu=False
             )
+
+    @staticmethod
+    def _add(x, out):
+        # residual connection
+        return x + out
+
+
+    @staticmethod
+    def _concat(x, out):
+        # concatenate along channel axis
+        return torch.cat((x, out), 1)
 
 
     def _make_grouped_conv1x1(self, in_channels, out_channels, groups,
@@ -206,14 +231,14 @@ class ShuffleNet(nn.Module):
         # first module is special
         # - non-grouped 1x1 convolution (i.e. pointwise convolution)
         #   is used in stage 2. Group convolutions used thereafter.
-        # - depthwise convolution has a stride of 2 for all stages.
+        # - concatenation is used.
         grouped_conv = stage > 2
         first_module = ShuffleUnit(
             self.stage_out_channels[stage-1],
             self.stage_out_channels[stage],
             groups=self.groups,
             grouped_conv=grouped_conv,
-            depthwise_stride=2,
+            combine='concat'
             )
         modules[stage_name+"_0"] = first_module
 
@@ -225,6 +250,7 @@ class ShuffleNet(nn.Module):
                 self.stage_out_channels[stage],
                 groups=self.groups,
                 grouped_conv=True,
+                combine='add'
                 )
             modules[name] = module
 
