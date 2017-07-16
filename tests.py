@@ -29,7 +29,7 @@ class TestShuffleUnit(unittest.TestCase):
         out = unit.forward(x)
 
         self.assertEqual(0, np.any(out.data.size() != 
-            (1, in_channels + out_channels, 14, 14)))
+            (1, out_channels, 14, 14)))
         #print("Passed Stage 3 Concat ShuffleUnit test.")
 
 
@@ -52,7 +52,7 @@ class TestShuffleUnit(unittest.TestCase):
     def test_stage2_firstShuffleUnit(self):
         groups = 3
         in_channels = 24
-        out_channels = 240 - in_channels
+        out_channels = 240
         x = get_input(num_channels=in_channels, height=56, width=56)
         unit = ShuffleUnit(
             in_channels,
