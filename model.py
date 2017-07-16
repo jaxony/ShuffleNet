@@ -73,6 +73,10 @@ class ShuffleUnit(nn.Module):
             # ShuffleUnit Figure 2c
             self.depthwise_stride = 2
             self._combine_func = self._concat
+            
+            # ensure output of concat has the same channels as 
+            # original output channels.
+            self.out_channels -= self.in_channels
         else:
             raise ValueError("Cannot combine tensors with \"{}\"" \
                              "Only \"add\" and \"concat\" are" \
@@ -229,20 +233,14 @@ class ShuffleNet(nn.Module):
         stage_name = "ShuffleUnit_Stage{}".format(stage)
         
         # First ShuffelUnit in the stage
-        # 1. tricky number of output channels:
-        #       actual output channels of conv path
-        #             = paper's output (Table 1) - input channels
-        first_output_channels = (
-            self.stage_out_channels[stage] - self.stage_out_channels[stage-1])
-
-        # 2. non-grouped 1x1 convolution (i.e. pointwise convolution)
+        # 1. non-grouped 1x1 convolution (i.e. pointwise convolution)
         #   is used in Stage 2. Group convolutions used everywhere else.
         grouped_conv = stage > 2
         
-        # 3. concatenation unit is always used.
+        # 2. concatenation unit is always used.
         first_module = ShuffleUnit(
             self.stage_out_channels[stage-1],
-            first_output_channels,
+            self.stage_out_channels[stage],
             groups=self.groups,
             grouped_conv=grouped_conv,
             combine='concat'
