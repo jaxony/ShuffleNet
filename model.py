@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from collections import OrderedDict
+from torch.nn import init
 
 
 def conv3x3(in_channels, out_channels, stride=1, 
@@ -134,9 +135,6 @@ class ShuffleUnit(nn.Module):
         conv = conv1x1(in_channels, out_channels, groups=groups)
         modules['conv1x1'] = conv
 
-        #if groups == 1:
-            #print('$$$$$$', conv.weight.data.size())
-
         if batch_norm:
             modules['batch_norm'] = nn.BatchNorm2d(out_channels)
         if relu:
@@ -226,6 +224,22 @@ class ShuffleNet(nn.Module):
         # Fully-connected classification layer
         num_inputs = self.stage_out_channels[-1]
         self.fc = nn.Linear(num_inputs, self.num_classes)
+        self.init_params()
+
+
+    def init_params(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                init.kaiming_normal(m.weight, mode='fan_out')
+                if m.bias is not None:
+                    init.constant(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                init.constant(m.weight, 1)
+                init.constant(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                init.normal(m.weight, std=0.001)
+                if m.bias is not None:
+                    init.constant(m.bias, 0)
 
 
     def _make_stage(self, stage):
@@ -274,14 +288,13 @@ class ShuffleNet(nn.Module):
         x = F.avg_pool2d(x, x.data.size()[-2:])
         
         # flatten for input to fully-connected layer
-        x = x.view(x.data.size(0), -1)
-        out = self.fc(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
 
-        return out
+        return F.log_softmax(x)
 
 
 if __name__ == "__main__":
     """Testing
     """
     model = ShuffleNet()
-    print(model)
