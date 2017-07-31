@@ -12,7 +12,7 @@ git clone https://github.com/jaxony/ShuffleNet.git
 
 Use the model defined in `model.py`:
 ```python
-from model import *
+from model import ShuffleNet
 
 # running on MNIST
 net = ShuffleNet(num_classes=10, in_channels=1)
