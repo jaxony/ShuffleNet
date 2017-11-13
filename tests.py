@@ -99,14 +99,15 @@ class TestChannelShuffle(unittest.TestCase):
 
 class TestShuffleNet(unittest.TestCase):
     def test(self):
+        groups = [1, 2, 3, 4, 8]
         # ImageNet image input size
         x = get_input(batchsize=1, num_channels=3, width=224, height=224)
         num_classes = 1000
-        groups = 3
-        net = ShuffleNet(groups=groups, num_classes=num_classes)
-        out = net.forward(x)
-        self.assertEqual(0, np.any(out.data.size() != (1, 1000)))
 
+        for group in groups:
+            net = ShuffleNet(groups=group, num_classes=num_classes)
+            out = net.forward(x)
+            self.assertEqual(0, np.any(out.data.size() != (1, 1000)))
 
 if __name__ == "__main__":
     unittest.main()
