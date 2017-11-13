@@ -246,7 +246,7 @@ class ShuffleNet(nn.Module):
         modules = OrderedDict()
         stage_name = "ShuffleUnit_Stage{}".format(stage)
         
-        # First ShuffelUnit in the stage
+        # First ShuffleUnit in the stage
         # 1. non-grouped 1x1 convolution (i.e. pointwise convolution)
         #   is used in Stage 2. Group convolutions used everywhere else.
         grouped_conv = stage > 2
