@@ -93,7 +93,7 @@ class ShuffleUnit(nn.Module):
         self.g_conv_1x1_compress = self._make_grouped_conv1x1(
             self.in_channels,
             self.bottleneck_channels,
-            groups=self.first_1x1_groups,
+            self.first_1x1_groups,
             batch_norm=True,
             relu=True
             )
@@ -109,7 +109,7 @@ class ShuffleUnit(nn.Module):
         self.g_conv_1x1_expand = self._make_grouped_conv1x1(
             self.bottleneck_channels,
             self.out_channels,
-            groups=self.groups,
+            self.groups,
             batch_norm=True,
             relu=False
             )
