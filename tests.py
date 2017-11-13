@@ -77,7 +77,8 @@ class TestChannelShuffle(unittest.TestCase):
         
         # prepare inputs
         shape = (batchsize, num_channels, height, width)
-        tensor = torch.FloatTensor(np.arange(np.product(shape)).reshape(shape))
+        tensor = torch.FloatTensor(
+            np.arange(np.product(shape)).astype(np.float32).reshape(shape))
         x = Variable(tensor)
 
         # run function
