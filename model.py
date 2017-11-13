@@ -64,6 +64,7 @@ class ShuffleUnit(nn.Module):
         self.grouped_conv = grouped_conv
         self.combine = combine
         self.groups = groups
+        self.bottleneck_channels = self.out_channels // 4
 
         # define the type of ShuffleUnit
         if self.combine == 'add':
@@ -82,8 +83,6 @@ class ShuffleUnit(nn.Module):
             raise ValueError("Cannot combine tensors with \"{}\"" \
                              "Only \"add\" and \"concat\" are" \
                              "supported".format(self.combine))
-        
-        self.bottleneck_channels = self.out_channels // 4
 
         # Use a 1x1 grouped or non-grouped convolution to reduce input channels
         # to bottleneck channels, as in a ResNet bottleneck module.
