@@ -40,5 +40,9 @@ format](://github.com/pytorch/examples/blob/master/imagenet/main.py#L165-L171):
 }
 ```
 
+Note: trained with the default ImageNet settings, which are actually
+different from the training regime described in the paper. Pending running
+again with those settings (and `groups=8`).
+
 [tar]: https://drive.google.com/file/d/12oGJsyDgp51LhQ7FOzKxF9nBsutLkE6V/view?usp=sharing
 [imagenet]: https://github.com/pytorch/examples/tree/master/imagenet
