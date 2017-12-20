@@ -7,7 +7,7 @@ from torchvision import transforms
 import torch
 from PIL import Image
 
-def get_transformer(image):
+def get_transformer():
   normalize = transforms.Normalize(
       mean=[0.485, 0.456, 0.406],
       std=[0.229, 0.224, 0.225])
