@@ -19,5 +19,30 @@ net = ShuffleNet(num_classes=10, in_channels=1)
 ```
 
 ## Performance
-The `ShuffleNet` implementation has been briefly tested on the MNIST dataset and achieves 90+% accuracy within the first 5 epochs, so the model can certainly learn. If anyone has the GPU resources to train `ShuffleNet` on ImageNet, do share the weights if you manage to train it successfully as in the original paper!
 
+Trained on ImageNet (using the [PyTorch ImageNet example][imagenet]) with
+`groups=3` and no channel multiplier. On the test set, got 62.2% top 1 and
+84.2% top 5. Unfortunately, this isn't comparable to Table 5 of the paper,
+because they don't run a network with these settings, but it is somewhere
+between the network with `groups=3` and half the number of channels (42.8%
+top 1) and the network with the same number of channels but `groups=8`
+(32.4% top 1). The pretrained state dictionary can be found [here][tar], in
+the [following
+format](://github.com/pytorch/examples/blob/master/imagenet/main.py#L165-L171):
+
+```
+{
+    'epoch': epoch + 1,
+    'arch': args.arch,
+    'state_dict': model.state_dict(),
+    'best_prec1': best_prec1,
+    'optimizer' : optimizer.state_dict()
+}
+```
+
+Note: trained with the default ImageNet settings, which are actually
+different from the training regime described in the paper. Pending running
+again with those settings (and `groups=8`).
+
+[tar]: https://drive.google.com/file/d/12oGJsyDgp51LhQ7FOzKxF9nBsutLkE6V/view?usp=sharing
+[imagenet]: https://github.com/pytorch/examples/tree/master/imagenet
