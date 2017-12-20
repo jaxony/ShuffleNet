@@ -17,7 +17,6 @@ def get_transformer():
 
   transformer = transforms.Compose([
       transforms.Resize(128),
-      transforms.CenterCrop(128),
       transforms.ToTensor(),
       normalize
   ])
@@ -52,6 +51,7 @@ def infer(args):
 
   # predict output
   print('Inferring on image {}'.format(args.image))
+  net.eval()
   y = net(x)
   top_idxs = np.argsort(y.data.cpu().numpy().ravel()).tolist()[-10:][::-1]
   print('==========================================')
