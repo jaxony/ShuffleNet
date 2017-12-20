@@ -290,7 +290,7 @@ class ShuffleNet(nn.Module):
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
-        return F.log_softmax(x)
+        return F.log_softmax(x, dim=1)
 
 
 if __name__ == "__main__":
